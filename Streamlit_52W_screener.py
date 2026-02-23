@@ -306,6 +306,79 @@ for i,ticker in enumerate(df2['Ticker']):
 
 #print("*"*10+' Long Position Prospect '+"*"*10)
 #print(df2)
-st.dataframe(df2)
+#st.dataframe(df2)
 
+df33=pd.DataFrame(list(zip(short_ISIN,short_symbol)),columns=['ISIN','Symbol'])
+matched_df2=upstox_df(Instrument_data,df33)
+df33['Range %']=0.0
+df33['RSI']=0.0
+df33['Days']=0
+df33['Closing']=0
+df33['Rng_Score >-4%']=0
+df33['RS']=0
+df33['Volume_Score 2x']=0
+df33['RSI_Score <30']=0
+df33['Total']=0
+for i,ticker in enumerate(matched_df2['Symbol']):
+    time.sleep(0.5)
+    print(str(i+1)+" : Downloading.....",ticker)
+    try:
+      df=stock_data(matched_df1['instrument_key'].iloc[i],interval1,'1',end_date1,start_date1)
+      df['RS']=df['Close']/df_index['Close']
+      #print(df)
+      previous_low=df['Low'].iloc[-252:-1].min()
+      today_close=df['Close'].iloc[-1]
+      round_low=rounding_down(df['Low'].iloc[-1])
+      previous_high_date=df['Low'].iloc[-252:-1].idxmin()
+      today_date=df.index[-1]
+      df33.loc[i,'Days']=(today_date-previous_high_date).days
+      if previous_low>=today_close :
+        df33.loc[i,'Closing']=1
+      df33.loc[i,'Range %']=round((round_low/previous_low-1)*100,2)
+      if df33['Range %'].iloc[i]>-4:
+        df33.loc[i,'Rng_Score >-4%']=1
+      if df['RS'].iloc[-252:-1].min()>=df['RS'].iloc[-1]:
+        df33.loc[i,'RS']=1
+      if df['Volume'].iloc[-10:-1].mean()*2<=df['Volume'].iloc[-1]:
+        df33.loc[i,'Volume_Score 2x']=1
+
+      df33.loc[i,'RSI']=round(RSI(df['Close']).iloc[-1],2)
+      if df33['RSI'].iloc[i]<30:
+        df33.loc[i,'RSI_Score <30']=1
+      df33.loc[i,'Total']=df33.loc[i,'Closing']+df33.loc[i,'Rng_Score >-4%']+df33.loc[i,'RS']+df33.loc[i,'Volume_Score 2x']+df33.loc[i,'RSI_Score <30']
+
+    except:
+      print('Data Not found')
+df33.sort_values('Total',ascending=False,inplace=True)
+#print(" Short position scoring...")
+#print(df33)
+
+df3=pd.DataFrame(list(zip(short_symbol,short_low,short_high_sl,short_qty)),columns=['Ticker','Low','StopLoss','Qty'])
+df3['Lots']=0.0
+df3['Lot Size']=0.0
+for i,ticker in enumerate(df3['Ticker']):
+  df11=Instrument_data[(Instrument_data['underlying_symbol']==ticker) & (Instrument_data['instrument_type']=='FUT')]
+  if df11.empty:
+    lots=0
+    df3.loc[df3['Ticker']==ticker,'Lots']=0
+  else:
+    lots=df11['lot_size'].iloc[0]
+    df3.loc[df3['Ticker']==ticker,'Lots']=df3['Qty'].iloc[i]/lots
+  #print(df3['Qty'].iloc[i])
+  #print(lots)
+  df3.loc[df3['Ticker']==ticker,'Lot Size']=int(lots)
+  #print(ticker)
+#print("*"*10+' Short Position Prospect '+"*"*10)
+#print(df3)
+
+st.set_page_config(page_title="52 Week High & Low",layout="wide")
+st.title("52 Week High & Low Screener")
+st.write("Long Position Scoring")
+st.dataframe(df22)
+st.write("Long Position Prospect list")
+st.dataframe(df2)
+st.write("Short Position Scoring")
+st.dataframe(df33)
+st.write("Short Position Prospect list")
+st.dataframe(df3)
 
